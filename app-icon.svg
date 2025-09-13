@@ -1,0 +1,82 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#007AFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0056CC;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="runnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8F4FD;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="aiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34C759;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#28A745;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background rounded square -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="url(#bgGradient)"/>
+  
+  <!-- Running figure -->
+  <g transform="translate(200, 250)">
+    <!-- Head -->
+    <circle cx="120" cy="80" r="50" fill="url(#runnerGradient)" stroke="none"/>
+    
+    <!-- Body -->
+    <ellipse cx="120" cy="200" rx="35" ry="80" fill="url(#runnerGradient)" stroke="none"/>
+    
+    <!-- Arms (in running motion) -->
+    <!-- Left arm (back) -->
+    <ellipse cx="80" cy="160" rx="15" ry="45" fill="url(#runnerGradient)" stroke="none" transform="rotate(-30 80 160)"/>
+    <!-- Right arm (forward) -->
+    <ellipse cx="160" cy="180" rx="15" ry="45" fill="url(#runnerGradient)" stroke="none" transform="rotate(20 160 180)"/>
+    
+    <!-- Legs (in running motion) -->
+    <!-- Left leg (forward) -->
+    <ellipse cx="100" cy="320" rx="18" ry="60" fill="url(#runnerGradient)" stroke="none" transform="rotate(15 100 320)"/>
+    <!-- Right leg (back) -->
+    <ellipse cx="140" cy="310" rx="18" ry="60" fill="url(#runnerGradient)" stroke="none" transform="rotate(-20 140 310)"/>
+  </g>
+  
+  <!-- AI Brain/Circuit elements -->
+  <g transform="translate(450, 180)">
+    <!-- Brain outline -->
+    <path d="M 50 100 C 20 80, 20 40, 50 20 C 80 10, 120 10, 150 20 C 180 40, 180 80, 150 100 C 140 120, 130 140, 120 150 C 100 160, 80 150, 60 140 C 50 130, 50 115, 50 100 Z" 
+          fill="url(#aiGradient)" stroke="none" opacity="0.9"/>
+    
+    <!-- Circuit lines inside brain -->
+    <g stroke="white" stroke-width="3" fill="none" opacity="0.8">
+      <line x1="70" y1="60" x2="130" y2="60"/>
+      <line x1="70" y1="80" x2="110" y2="80"/>
+      <line x1="90" y1="100" x2="130" y2="100"/>
+      <line x1="80" y1="120" x2="120" y2="120"/>
+      
+      <!-- Vertical connections -->
+      <line x1="90" y1="60" x2="90" y2="80"/>
+      <line x1="110" y1="80" x2="110" y2="100"/>
+      <line x1="120" y1="100" x2="120" y2="120"/>
+    </g>
+    
+    <!-- Circuit nodes -->
+    <g fill="white">
+      <circle cx="90" cy="60" r="4"/>
+      <circle cx="110" cy="80" r="4"/>
+      <circle cx="110" cy="100" r="4"/>
+      <circle cx="120" cy="120" r="4"/>
+    </g>
+  </g>
+  
+  <!-- Speed lines to show motion -->
+  <g stroke="white" stroke-width="4" opacity="0.6" fill="none">
+    <line x1="100" y1="400" x2="180" y2="400"/>
+    <line x1="120" y1="450" x2="200" y2="450"/>
+    <line x1="80" y1="500" x2="160" y2="500"/>
+  </g>
+  
+  <!-- AI connection lines -->
+  <g stroke="rgba(52, 199, 89, 0.6)" stroke-width="3" fill="none">
+    <path d="M 350 350 Q 400 320 450 300" stroke-dasharray="10,5"/>
+    <path d="M 370 380 Q 420 350 470 330" stroke-dasharray="10,5"/>
+  </g>
+</svg>

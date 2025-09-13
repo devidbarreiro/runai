@@ -8,14 +8,23 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var dataManager = DataManager.shared
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if !dataManager.isLoggedIn {
+                LoginView()
+            } else if let user = dataManager.currentUser, user.isFirstTimeUser && !user.hasCompletedOnboarding {
+                OnboardingView()
+            } else if let user = dataManager.currentUser, !user.hasCompletedPhysicalOnboarding {
+                PhysicalOnboardingView()
+            } else {
+                MainView()
+            }
         }
-        .padding()
+        .animation(.easeInOut(duration: 0.5), value: dataManager.isLoggedIn)
+        .animation(.easeInOut(duration: 0.5), value: dataManager.currentUser?.hasCompletedOnboarding)
+        .animation(.easeInOut(duration: 0.5), value: dataManager.currentUser?.hasCompletedPhysicalOnboarding)
     }
 }
 
