@@ -1,0 +1,20 @@
+# Xcode
+xcuserdata/
+build/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+
+# Environment variables
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
