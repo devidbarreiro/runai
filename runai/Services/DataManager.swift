@@ -11,9 +11,16 @@ import SwiftUI
 class DataManager: ObservableObject {
     static let shared = DataManager()
     
-    @Published var currentUser: User?
     @Published var workouts: [Workout] = []
-    @Published var isLoggedIn: Bool = false
+    
+    // Delegate to TenantManager for user management
+    var currentUser: User? {
+        return TenantManager.shared.currentUser
+    }
+    
+    var isLoggedIn: Bool {
+        return TenantManager.shared.isLoggedIn
+    }
     
     private let userDefaultsKey = AppConstants.StorageKeys.user
     private let workoutsKey = AppConstants.StorageKeys.workouts
@@ -25,71 +32,41 @@ class DataManager: ObservableObject {
         checkAndUpdateOverdueWorkouts()
     }
     
-    // MARK: - User Management
+    // MARK: - User Management (Delegated to TenantManager)
     func registerUser(username: String, email: String, name: String) -> Bool {
-        print("DEBUG DataManager: registerUser called with username: \(username), email: \(email), name: \(name)")
-        
-        // Check if username already exists
-        if isUsernameExists(username) {
-            print("DEBUG DataManager: Username \(username) already exists")
-            return false
-        }
-        
-        print("DEBUG DataManager: Username is available, creating user")
-        
-        // Create user
-        let user = User(username: username, email: email, name: name)
-        
-        print("DEBUG DataManager: User created")
-        
-        // Save user to registered users list
-        addToRegisteredUsers(user)
-        print("DEBUG DataManager: User added to registered users")
-        
-        // Login the user
-        currentUser = user
-        isLoggedIn = true
-        saveUser()
-        print("DEBUG DataManager: User logged in successfully")
-        
-        return true
+        // This method is deprecated - use TenantManager.shared.registerUser instead
+        return false
     }
     
     func login(username: String) -> Bool {
-        guard let user = getRegisteredUser(username: username) else {
-            return false
-        }
-        
-        currentUser = user
-        isLoggedIn = true
-        saveUser()
-        return true
+        // This method is deprecated - use TenantManager.shared.loginUser instead
+        return false
     }
     
     func logout() {
-        currentUser = nil
-        isLoggedIn = false
-        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        TenantManager.shared.logout()
     }
     
     func updateCurrentUser(_ user: User) {
-        currentUser = user
-        saveUser()
-        
-        // Also update in registered users list
-        var registeredUsers = loadRegisteredUsers()
-        if let index = registeredUsers.firstIndex(where: { $0.username == user.username }) {
-            registeredUsers[index] = user
-            saveRegisteredUsers(registeredUsers)
-        }
+        // Delegate to TenantManager
+        TenantManager.shared.currentUser = user
+        TenantManager.shared.saveCurrentSession()
     }
     
     func completeOnboarding() {
         guard let user = currentUser else { return }
         let updatedUser = User(username: user.username, email: user.email, name: user.name, hasCompletedOnboarding: true, isFirstTimeUser: false)
-        currentUser = updatedUser
+        TenantManager.shared.currentUser = updatedUser
         saveUser()
         updateRegisteredUser(updatedUser)
+    }
+    
+    func completePlanSelection() {
+        guard var user = currentUser else { return }
+        user.hasSelectedPlan = true
+        TenantManager.shared.currentUser = user
+        saveUser()
+        updateRegisteredUser(user)
     }
     
     func isUsernameExists(_ username: String) -> Bool {
@@ -99,6 +76,13 @@ class DataManager: ObservableObject {
     
     // MARK: - Workout Management
     func addWorkout(_ workout: Workout) {
+        // Check if user can create more workouts
+        guard SubscriptionService.shared.trackWorkoutCreated() else {
+            // Show paywall for workout tracking
+            NotificationCenter.default.post(name: .showPaywall, object: SubscriptionFeature.basicWorkoutTracking)
+            return
+        }
+        
         workouts.append(workout)
         saveWorkouts()
     }
@@ -170,8 +154,8 @@ class DataManager: ObservableObject {
     private func loadUser() {
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
            let user = try? JSONDecoder().decode(User.self, from: data) {
-            currentUser = user
-            isLoggedIn = true
+            TenantManager.shared.currentUser = user
+            TenantManager.shared.isLoggedIn = true
         }
     }
     
