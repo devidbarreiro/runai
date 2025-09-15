@@ -25,6 +25,7 @@ struct MainView: View {
     @ObservedObject var dataManager = DataManager.shared
     @State private var selectedDate = Date()
     @State private var viewMode: ViewMode = .daily
+    @State private var selectedSportFilter: SportType? = nil
     @State private var showingAddWorkout = false
     @State private var showingChat = false
     @State private var showingProfile = false
@@ -42,12 +43,17 @@ struct MainView: View {
                 // Date selector
                 DateSelectorView(selectedDate: $selectedDate, viewMode: viewMode)
                 
+                // Sport filter
+                if let user = dataManager.currentUser, user.preferredSports.count > 1 {
+                    SportFilterView(selectedSport: $selectedSportFilter, userSports: user.preferredSports)
+                }
+                
                 // Content based on view mode
                 ScrollView {
                     if viewMode == .daily {
-                        DailyView(selectedDate: selectedDate)
+                        DailyView(selectedDate: selectedDate, sportFilter: selectedSportFilter)
                     } else {
-                        WeeklyView(selectedDate: selectedDate)
+                        WeeklyView(selectedDate: selectedDate, sportFilter: selectedSportFilter)
                     }
                 }
                 .onAppear {
@@ -261,6 +267,63 @@ struct DateSelectorView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
+    }
+}
+
+// MARK: - Sport Filter View
+struct SportFilterView: View {
+    @Binding var selectedSport: SportType?
+    let userSports: [SportType]
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                // All sports option
+                Button(action: {
+                    selectedSport = nil
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "list.bullet")
+                            .font(.caption)
+                        Text("Todos")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(selectedSport == nil ? Color.blue : Color(.systemGray6))
+                    )
+                    .foregroundColor(selectedSport == nil ? .white : .primary)
+                }
+                
+                // Individual sport filters
+                ForEach(userSports, id: \.self) { sport in
+                    Button(action: {
+                        selectedSport = sport
+                    }) {
+                        HStack(spacing: 6) {
+                            Text(sport.emoji)
+                                .font(.caption)
+                            Text(sport.displayName)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(selectedSport == sport ? Color.blue : Color(.systemGray6))
+                        )
+                        .foregroundColor(selectedSport == sport ? .white : .primary)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
     }
 }
 

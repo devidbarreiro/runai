@@ -9,10 +9,15 @@ import SwiftUI
 
 struct WeeklyView: View {
     let selectedDate: Date
+    let sportFilter: SportType?
     @ObservedObject var dataManager = DataManager.shared
     
     private var workoutsForWeek: [Workout] {
-        dataManager.getWorkoutsForWeek(containing: selectedDate)
+        let allWorkouts = dataManager.getWorkoutsForWeek(containing: selectedDate)
+        if let filter = sportFilter {
+            return allWorkouts.filter { $0.sport == filter }
+        }
+        return allWorkouts
     }
     
     private var weekDays: [Date] {
@@ -370,5 +375,5 @@ struct WeeklyWorkoutRow: View {
 }
 
 #Preview {
-    WeeklyView(selectedDate: Date())
+    WeeklyView(selectedDate: Date(), sportFilter: nil)
 }

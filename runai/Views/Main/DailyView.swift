@@ -9,10 +9,15 @@ import SwiftUI
 
 struct DailyView: View {
     let selectedDate: Date
+    let sportFilter: SportType?
     @ObservedObject var dataManager = DataManager.shared
     
     private var workoutsForDay: [Workout] {
-        dataManager.getWorkoutsForDate(selectedDate)
+        let allWorkouts = dataManager.getWorkoutsForDate(selectedDate)
+        if let filter = sportFilter {
+            return allWorkouts.filter { $0.sport == filter }
+        }
+        return allWorkouts
     }
     
     private var totalKilometers: Double {
@@ -24,7 +29,8 @@ struct DailyView: View {
             // Daily summary card
             DailySummaryCard(
                 totalKilometers: totalKilometers,
-                workoutCount: workoutsForDay.count
+                workoutCount: workoutsForDay.count,
+                workouts: workoutsForDay
             )
             
             // Workouts list
@@ -50,6 +56,14 @@ struct DailyView: View {
 struct DailySummaryCard: View {
     let totalKilometers: Double
     let workoutCount: Int
+    let workouts: [Workout]
+    
+    private var sportBreakdown: [(SportType, Int)] {
+        let grouped = Dictionary(grouping: workouts, by: { $0.sport })
+        return grouped.map { (sport, workouts) in
+            (sport, workouts.count)
+        }.sorted { $0.1 > $1.1 }
+    }
     
     var body: some View {
         VStack(spacing: 16) {
@@ -72,11 +86,34 @@ struct DailySummaryCard: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
-                    Text("\(workoutCount)")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                Text("\(workoutCount)")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            }
+            
+            // Sport breakdown
+            if sportBreakdown.count > 1 {
+                HStack(spacing: 8) {
+                    ForEach(sportBreakdown, id: \.0) { sport, count in
+                        HStack(spacing: 4) {
+                            Text(sport.emoji)
+                                .font(.caption)
+                            Text("\(count)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color(sport.color).opacity(0.2))
+                        )
+                        .foregroundColor(.secondary)
+                    }
+                    Spacer()
                 }
             }
+        }
             
             if workoutCount > 0 {
                 Divider()
@@ -206,30 +243,92 @@ struct WorkoutCard: View {
             
             // Main card content
             HStack(spacing: 16) {
-                // Workout type icon
-                VStack {
-                    Text(workout.type.emoji)
-                        .font(.title)
+                // Sport and workout type icon
+                VStack(spacing: 4) {
+                    // Sport emoji with background color
+                    Text(workout.sport.emoji)
+                        .font(.title2)
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(Color(workout.sport.color).opacity(0.2))
+                        )
                     
                     Text(workout.type.displayName)
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
+                        .lineLimit(2)
                 }
-                .frame(width: 60)
+                .frame(width: 70)
                 
                 // Workout details
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text(workout.formattedKilometers)
+                        Text(workout.formattedDistance)
                             .font(.headline)
                             .fontWeight(.semibold)
+                        
+                        if let duration = workout.duration {
+                            Text("•")
+                                .foregroundColor(.secondary)
+                            Text(workout.formattedDuration)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         
                         Text(formatTime(workout.date))
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    }
+                    
+                    // Intensity and sport-specific info
+                    HStack {
+                        if let intensity = workout.intensity {
+                            Text(intensity)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(.systemGray6))
+                                )
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Swimming specific info
+                        if workout.sport == .swimming, let strokeType = workout.strokeType {
+                            Text(strokeType)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.cyan.opacity(0.2))
+                                )
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Cycling specific info
+                        if workout.sport == .cycling, let elevation = workout.elevation {
+                            HStack(spacing: 2) {
+                                Image(systemName: "mountain.2")
+                                    .font(.caption2)
+                                Text("\(Int(elevation))m")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.orange.opacity(0.2))
+                            )
+                            .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
                     }
                     
                     if let notes = workout.notes, !notes.isEmpty {
@@ -363,5 +462,5 @@ struct EmptyStateView: View {
 }
 
 #Preview {
-    DailyView(selectedDate: Date())
+    DailyView(selectedDate: Date(), sportFilter: nil)
 }
