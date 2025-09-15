@@ -23,7 +23,7 @@ struct ChatMessage: Identifiable, Codable {
     }
 }
 
-struct ChatRequest: Codable {
+struct ChatServiceRequest: Codable {
     let message: String
     let context: ChatContext
 }
@@ -42,7 +42,7 @@ struct WorkoutSummary: Codable {
     let type: String
 }
 
-struct ChatResponse: Codable {
+struct ChatServiceResponse: Codable {
     let response: String?
     let error: String?
 }
@@ -94,7 +94,7 @@ class ChatService: ObservableObject {
         }
         
         let context = createChatContext()
-        let request = ChatRequest(message: message, context: context)
+        let request = ChatServiceRequest(message: message, context: context)
         
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -110,7 +110,7 @@ class ChatService: ObservableObject {
         
         URLSession.shared.dataTaskPublisher(for: urlRequest)
             .map(\.data)
-            .decode(type: ChatResponse.self, decoder: JSONDecoder())
+            .decode(type: ChatServiceResponse.self, decoder: JSONDecoder())
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in

@@ -184,7 +184,7 @@ class EmailVerificationService: ObservableObject {
                 print("📧 [EmailService] ❌ Network error: \(error)")
                 return EmailError.networkError(error)
             }
-            .catch { [weak self] error -> AnyPublisher<Bool, Error> in
+            .catch { [weak self] (error: Error) -> AnyPublisher<Bool, Error> in
                 self?.lastError = error.localizedDescription
                 print("📧 [EmailService] ❌ Final error: \(error.localizedDescription)")
                 return Just(false)

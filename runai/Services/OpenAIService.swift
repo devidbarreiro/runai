@@ -34,13 +34,55 @@ class OpenAIService: ObservableObject {
         case networkError(Error)
         case invalidResponse
         case missingAPIKey
+        case insufficientSubscription
+        case quotaExceeded
     }
     
     // MARK: - Training Plan Generation
     
     func generateTrainingPlan(for user: User) -> AnyPublisher<[Workout], Error> {
-        logger.info("🚀 Starting OpenAI training plan generation for user: \(user.name)")
+        logger.info("🚀 Starting training plan generation for user: \(user.name), primary sport: \(user.primarySport.displayName)")
         
+        // Check if user can use AI coaching
+        guard SubscriptionService.shared.canUseFeature(.unlimitedAICoaching) else {
+            logger.warning("⚠️ User doesn't have access to unlimited AI coaching")
+            return Fail(error: OpenAIError.insufficientSubscription)
+                .eraseToAnyPublisher()
+        }
+        
+        // Track AI usage
+        guard SubscriptionService.shared.trackAIQuery() else {
+            logger.warning("⚠️ User has reached AI query limit")
+            return Fail(error: OpenAIError.quotaExceeded)
+                .eraseToAnyPublisher()
+        }
+        
+        // Delegate to MultiSportAIService based on user's primary sport and preferences
+        let multiSportService = MultiSportAIService.shared
+        
+        // If user has multiple sports or triathlon as primary, use triathlon orchestrator
+        if user.preferredSports.count > 1 || user.primarySport == .triathlon {
+            logger.info("🏊‍♂️🚴‍♂️🏃‍♂️ Generating triathlon plan")
+            return multiSportService.generateTriathlonPlan(for: user, weeks: 12)
+        }
+        
+        // Otherwise, use specialized agent for primary sport
+        switch user.primarySport {
+        case .running:
+            logger.info("🏃‍♂️ Generating running plan")
+            return multiSportService.generateRunningPlan(for: user, weeks: 12)
+        case .swimming:
+            logger.info("🏊‍♂️ Generating swimming plan")
+            return multiSportService.generateSwimmingPlan(for: user, weeks: 12)
+        case .cycling:
+            logger.info("🚴‍♂️ Generating cycling plan")
+            return multiSportService.generateCyclingPlan(for: user, weeks: 12)
+        case .triathlon:
+            logger.info("🏊‍♂️🚴‍♂️🏃‍♂️ Generating triathlon plan")
+            return multiSportService.generateTriathlonPlan(for: user, weeks: 12)
+        }
+        
+        // Legacy fallback (this code should not be reached)
         guard apiKey != "YOUR_OPENAI_API_KEY_HERE" else {
             logger.error("❌ OpenAI API key not configured")
             return Fail(error: OpenAIError.missingAPIKey)
@@ -57,10 +99,12 @@ class OpenAIService: ObservableObject {
                 self?.logger.info("📥 Received response from OpenAI - Status: 200")
                 return self?.parseOpenAIResponse(response) ?? []
             }
-            .catch { [weak self] error in
+            .catch { [weak self] error -> AnyPublisher<[Workout], Error> in
                 self?.logger.error("❌ OpenAI request failed: \(error.localizedDescription)")
                 self?.lastError = error.localizedDescription
-                return Just([Workout]())
+                
+                return Fail(error: error)
+                    .eraseToAnyPublisher()
             }
             .handleEvents(
                 receiveCompletion: { [weak self] _ in
@@ -80,7 +124,7 @@ class OpenAIService: ObservableObject {
         formatter.dateFormat = "yyyy-MM-dd"
         let todayString = formatter.string(from: currentDate)
         
-        let tomorrowString = formatter.string(from: Calendar.current.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate)
+        let _ = formatter.string(from: Calendar.current.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate)
         
         let systemPrompt = """
         Eres un entrenador personal especializado en running. Tu tarea es crear un plan de entrenamiento personalizado basado en los datos del usuario.
@@ -188,12 +232,12 @@ class OpenAIService: ObservableObject {
     private func parseOpenAIResponse(_ response: OpenAIResponse) -> [Workout] {
         logger.debug("🔍 Parsing OpenAI response")
         
-        guard let choice = response.choices.first,
-              let content = choice.message.content else {
+        guard let choice = response.choices.first else {
             logger.warning("⚠️ No content in OpenAI response")
             return []
         }
         
+        let content = choice.message.content
         logger.debug("📋 Raw OpenAI response content: \(content)")
         
         // Try to extract JSON from the response
@@ -208,7 +252,7 @@ class OpenAIService: ObservableObject {
             
             logger.info("✅ Successfully decoded training plan with \(trainingPlan.trainingPlan.count) entries")
             
-            let workouts: [Workout] = trainingPlan.trainingPlan.compactMap { aiWorkout in
+            let workouts: [Workout] = trainingPlan.trainingPlan.compactMap { aiWorkout -> Workout? in
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "yyyy-MM-dd"
                 guard let date = dateFormatter.date(from: aiWorkout.day) else {
@@ -238,7 +282,7 @@ class OpenAIService: ObservableObject {
                 return Workout(
                     date: date,
                     type: workoutType,
-                    kilometers: aiWorkout.distanceKm,
+                    distance: aiWorkout.distanceKm,
                     notes: aiWorkout.notes
                 )
             }
