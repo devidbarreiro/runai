@@ -14,6 +14,10 @@ enum AppConstants {
         static let baseURL = "http://localhost:5678"
         static let chatEndpoint = "/webhook/chat"
         static let timeout: TimeInterval = 30.0
+        
+        // Email service
+        static let resendAPIKey = "re_8eM2LT35_BoXWyJc6dSxX5WqwgR9CbEDH"
+        static let resendBaseURL = "https://api.resend.com"
     }
     
     // MARK: - Storage Keys
