@@ -46,7 +46,21 @@ struct User: Codable, Equatable {
     var hasCompletedPhysicalOnboarding: Bool
     var hasSelectedPlan: Bool
     
-    init(username: String, email: String, name: String, hasCompletedOnboarding: Bool = false, isFirstTimeUser: Bool = true, tenantId: UUID? = nil, role: UserRole = .member, subscriptionType: SubscriptionType = .free) {
+    // Multi-sport preferences
+    var preferredSports: [SportType]
+    var primarySport: SportType
+    
+    // Sport-specific data
+    var swimmingLevel: SwimmingLevel?
+    var cyclingLevel: CyclingLevel?
+    var hasPoolAccess: Bool
+    var hasBikeAccess: Bool
+    var preferredPoolLength: Int? // 25m or 50m
+    
+    // Sport-specific performance data (JSON)
+    var sportSpecificData: [String: SportPerformanceData]
+    
+    init(username: String, email: String, name: String, hasCompletedOnboarding: Bool = false, isFirstTimeUser: Bool = true, tenantId: UUID? = nil, role: UserRole = .member, subscriptionType: SubscriptionType = .free, primarySport: SportType = .running) {
         self.id = UUID()
         self.username = username
         self.email = email
@@ -66,6 +80,14 @@ struct User: Codable, Equatable {
         self.hasAcceptedPrivacyPolicy = false
         self.hasCompletedPhysicalOnboarding = false
         self.hasSelectedPlan = false
+        
+        // Multi-sport initialization
+        self.primarySport = primarySport
+        self.preferredSports = [primarySport]
+        self.hasPoolAccess = false
+        self.hasBikeAccess = false
+        self.preferredPoolLength = 25
+        self.sportSpecificData = [:]
     }
     
     // MARK: - User Type Helpers
@@ -108,24 +130,94 @@ enum FitnessLevel: String, CaseIterable, Codable {
 }
 
 enum RaceType: String, CaseIterable, Codable {
+    // Running races
+    case fiveK = "5K"
+    case tenK = "10K"
     case halfMarathon = "media_maraton"
     case marathon = "maraton"
+    case ultraMarathon = "ultra_maraton"
+    
+    // Triathlon races
+    case sprintTriathlon = "sprint_triathlon"
+    case olympicTriathlon = "olympic_triathlon"
+    case halfIronman = "half_ironman"
+    case ironman = "ironman"
     
     var displayName: String {
         switch self {
+        case .fiveK:
+            return "5K"
+        case .tenK:
+            return "10K"
         case .halfMarathon:
             return "Media Maratón (21K)"
         case .marathon:
             return "Maratón (42K)"
+        case .ultraMarathon:
+            return "Ultra Maratón (50K+)"
+        case .sprintTriathlon:
+            return "Triatlón Sprint"
+        case .olympicTriathlon:
+            return "Triatlón Olímpico"
+        case .halfIronman:
+            return "Half Ironman 70.3"
+        case .ironman:
+            return "Ironman 140.6"
         }
     }
     
     var distance: Double {
         switch self {
+        case .fiveK:
+            return 5.0
+        case .tenK:
+            return 10.0
         case .halfMarathon:
             return 21.1
         case .marathon:
             return 42.2
+        case .ultraMarathon:
+            return 50.0
+        case .sprintTriathlon:
+            return 0.75 + 20 + 5 // 750m swim + 20km bike + 5km run
+        case .olympicTriathlon:
+            return 1.5 + 40 + 10 // 1.5km swim + 40km bike + 10km run
+        case .halfIronman:
+            return 1.9 + 90 + 21.1 // 1.9km swim + 90km bike + 21.1km run
+        case .ironman:
+            return 3.8 + 180 + 42.2 // 3.8km swim + 180km bike + 42.2km run
+        }
+    }
+    
+    var sport: SportType {
+        switch self {
+        case .fiveK, .tenK, .halfMarathon, .marathon, .ultraMarathon:
+            return .running
+        case .sprintTriathlon, .olympicTriathlon, .halfIronman, .ironman:
+            return .triathlon
+        }
+    }
+    
+    var emoji: String {
+        switch self {
+        case .fiveK:
+            return "🏃‍♂️"
+        case .tenK:
+            return "🏃‍♀️"
+        case .halfMarathon:
+            return "🏃"
+        case .marathon:
+            return "🏃‍♂️💪"
+        case .ultraMarathon:
+            return "🏃‍♂️🔥"
+        case .sprintTriathlon:
+            return "🏊‍♂️🚴‍♂️🏃‍♂️"
+        case .olympicTriathlon:
+            return "🏊‍♂️🚴‍♂️🏃‍♂️🥇"
+        case .halfIronman:
+            return "🏊‍♂️🚴‍♂️🏃‍♂️💪"
+        case .ironman:
+            return "🏊‍♂️🚴‍♂️🏃‍♂️🔥"
         }
     }
 }
@@ -409,6 +501,161 @@ enum SubscriptionFeature: String, CaseIterable, Codable {
     
     static var proFeatures: [SubscriptionFeature] {
         return premiumFeatures + [.prioritySupport, .advancedIntegrations, .customWorkouts, .exportData]
+    }
+}
+
+enum SwimmingLevel: String, CaseIterable, Codable {
+    case beginner = "beginner"
+    case intermediate = "intermediate"
+    case advanced = "advanced"
+    case competitive = "competitive"
+    
+    var displayName: String {
+        switch self {
+        case .beginner:
+            return "Principiante"
+        case .intermediate:
+            return "Intermedio"
+        case .advanced:
+            return "Avanzado"
+        case .competitive:
+            return "Competitivo"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .beginner:
+            return "Puedo nadar 200-500m sin parar"
+        case .intermediate:
+            return "Puedo nadar 1000-2000m sin parar"
+        case .advanced:
+            return "Puedo nadar más de 2000m sin parar"
+        case .competitive:
+            return "Compito regularmente en natación"
+        }
+    }
+}
+
+enum CyclingLevel: String, CaseIterable, Codable {
+    case beginner = "beginner"
+    case intermediate = "intermediate"
+    case advanced = "advanced"
+    case competitive = "competitive"
+    
+    var displayName: String {
+        switch self {
+        case .beginner:
+            return "Principiante"
+        case .intermediate:
+            return "Intermedio"
+        case .advanced:
+            return "Avanzado"
+        case .competitive:
+            return "Competitivo"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .beginner:
+            return "Puedo pedalear 10-20km cómodamente"
+        case .intermediate:
+            return "Puedo pedalear 40-60km sin problemas"
+        case .advanced:
+            return "Puedo pedalear más de 80km"
+        case .competitive:
+            return "Compito regularmente en ciclismo"
+        }
+    }
+}
+
+// MARK: - Sport Performance Data
+struct SportPerformanceData: Codable, Equatable {
+    // Running specific
+    var current5kTime: TimeInterval?
+    var current10kTime: TimeInterval?
+    var currentHalfMarathonTime: TimeInterval?
+    var currentMarathonTime: TimeInterval?
+    var weeklyRunningKm: Double?
+    var longestRun: Double?
+    
+    // Swimming specific
+    var current100mFreeTime: TimeInterval?
+    var current400mFreeTime: TimeInterval?
+    var current1500mFreeTime: TimeInterval?
+    var weeklySwimmingKm: Double?
+    var longestSwim: Double?
+    var favoriteStroke: String?
+    
+    // Cycling specific
+    var current20kmTime: TimeInterval?
+    var current40kmTime: TimeInterval?
+    var ftp: Int? // Functional Threshold Power
+    var weeklyCyclingKm: Double?
+    var longestRide: Double?
+    var bikeType: String? // Road, Mountain, TT, etc.
+    
+    // Triathlon specific
+    var currentSprintTriTime: TimeInterval?
+    var currentOlympicTriTime: TimeInterval?
+    var currentHalfIronmanTime: TimeInterval?
+    var currentIronmanTime: TimeInterval?
+    
+    // Goals by sport
+    var raceGoals: [RaceGoal]
+    
+    init() {
+        self.raceGoals = []
+    }
+}
+
+// MARK: - Race Goal
+struct RaceGoal: Codable, Equatable, Identifiable {
+    let id: UUID
+    let sport: SportType
+    let raceType: RaceType
+    let targetTime: TimeInterval?
+    let raceDate: Date?
+    let priority: GoalPriority
+    let notes: String?
+    
+    init(sport: SportType, raceType: RaceType, targetTime: TimeInterval? = nil, raceDate: Date? = nil, priority: GoalPriority = .medium, notes: String? = nil) {
+        self.id = UUID()
+        self.sport = sport
+        self.raceType = raceType
+        self.targetTime = targetTime
+        self.raceDate = raceDate
+        self.priority = priority
+        self.notes = notes
+    }
+}
+
+enum GoalPriority: String, CaseIterable, Codable {
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
+    
+    var displayName: String {
+        switch self {
+        case .low:
+            return "Baja"
+        case .medium:
+            return "Media"
+        case .high:
+            return "Alta"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .low:
+            return "gray"
+        case .medium:
+            return "blue"
+        case .high:
+            return "red"
+        }
     }
 }
 
