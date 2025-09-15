@@ -13,19 +13,72 @@ struct AddWorkoutView: View {
     
     let selectedDate: Date
     
-    @State private var kilometers: String = ""
+    @State private var selectedSport: SportType = .running
+    @State private var distance: String = ""
     @State private var selectedType: WorkoutType = .longRun
+    @State private var duration: String = ""
+    @State private var intensity: String = "Moderate"
     @State private var notes: String = ""
     @State private var workoutDate: Date
     @State private var showingDatePicker = false
     
+    // Swimming specific
+    @State private var poolLength: Int = 25
+    @State private var strokeType: String = "Freestyle"
+    
+    // Cycling specific
+    @State private var elevation: String = ""
+    @State private var avgPower: String = ""
+    
+    private let intensityOptions = ["Easy", "Moderate", "Hard", "Race"]
+    private let strokeTypes = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "Mixed"]
+    
     init(selectedDate: Date) {
         self.selectedDate = selectedDate
         self._workoutDate = State(initialValue: selectedDate)
+        
+        // Initialize with user's primary sport if available
+        if let user = DataManager.shared.currentUser {
+            self._selectedSport = State(initialValue: user.primarySport)
+            self._selectedType = State(initialValue: WorkoutType.typesFor(sport: user.primarySport).first ?? .longRun)
+        }
     }
     
     private var isValidWorkout: Bool {
-        !kilometers.isEmpty && Double(kilometers) != nil && Double(kilometers)! > 0
+        !distance.isEmpty && Double(distance) != nil && Double(distance)! > 0
+    }
+    
+    private var distanceLabel: String {
+        switch selectedSport {
+        case .swimming:
+            return "Distancia"
+        case .running, .cycling:
+            return "Kilómetros"
+        case .triathlon:
+            return "Distancia Total"
+        }
+    }
+    
+    private var distancePlaceholder: String {
+        switch selectedSport {
+        case .swimming:
+            return "1500"
+        case .running:
+            return "5.0"
+        case .cycling:
+            return "30.0"
+        case .triathlon:
+            return "25.0"
+        }
+    }
+    
+    private var distanceUnit: String {
+        switch selectedSport {
+        case .swimming:
+            return "m"
+        case .running, .cycling, .triathlon:
+            return "km"
+        }
     }
     
     private var saveButtonText: String {
@@ -98,6 +151,41 @@ struct AddWorkoutView: View {
                             }
                         }
                         
+                        // Sport selection
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Deporte")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                            
+                            HStack(spacing: 12) {
+                                ForEach(SportType.allCases, id: \.self) { sport in
+                                    Button(action: {
+                                        selectedSport = sport
+                                        // Update workout type to match sport
+                                        let availableTypes = WorkoutType.typesFor(sport: sport)
+                                        if !availableTypes.contains(selectedType) {
+                                            selectedType = availableTypes.first ?? .longRun
+                                        }
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Text(sport.emoji)
+                                                .font(.title2)
+                                            Text(sport.displayName)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(selectedSport == sport ? Color.blue : Color(.systemGray6))
+                                        )
+                                        .foregroundColor(selectedSport == sport ? .white : .primary)
+                                    }
+                                }
+                            }
+                        }
+                        
                         // Workout type selection
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Tipo de entrenamiento")
@@ -105,7 +193,7 @@ struct AddWorkoutView: View {
                                 .fontWeight(.medium)
                             
                             HStack(spacing: 12) {
-                                ForEach(WorkoutType.allCases, id: \.self) { type in
+                                ForEach(WorkoutType.typesFor(sport: selectedSport), id: \.self) { type in
                                     WorkoutTypeButton(
                                         type: type,
                                         isSelected: selectedType == type,
@@ -119,7 +207,7 @@ struct AddWorkoutView: View {
                         
                         // Kilometers input
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Kilómetros")
+                            Text(distanceLabel)
                                 .font(.headline)
                                 .fontWeight(.medium)
                             
@@ -128,11 +216,11 @@ struct AddWorkoutView: View {
                                     .foregroundColor(.secondary)
                                     .frame(width: 20)
                                 
-                                TextField("0.0", text: $kilometers)
+                                TextField(distancePlaceholder, text: $distance)
                                     .keyboardType(.decimalPad)
                                     .textFieldStyle(PlainTextFieldStyle())
                                 
-                                Text("km")
+                                Text(distanceUnit)
                                     .foregroundColor(.secondary)
                             }
                             .padding()
@@ -144,6 +232,160 @@ struct AddWorkoutView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color(.systemGray4), lineWidth: 1)
                             )
+                        }
+                        
+                        // Duration input
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Duración (opcional)")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                Image(systemName: "clock")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 20)
+                                
+                                TextField("60", text: $duration)
+                                    .keyboardType(.numberPad)
+                                    .textFieldStyle(PlainTextFieldStyle())
+                                
+                                Text("min")
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray6))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                        }
+                        
+                        // Intensity selection
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Intensidad")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                            
+                            HStack(spacing: 8) {
+                                ForEach(intensityOptions, id: \.self) { option in
+                                    Button(action: {
+                                        intensity = option
+                                    }) {
+                                        Text(option)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(intensity == option ? Color.blue : Color(.systemGray6))
+                                            )
+                                            .foregroundColor(intensity == option ? .white : .primary)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Sport-specific fields
+                        if selectedSport == .swimming {
+                            VStack(spacing: 16) {
+                                // Pool length
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Longitud de piscina")
+                                        .font(.headline)
+                                        .fontWeight(.medium)
+                                    
+                                    Picker("Pool Length", selection: $poolLength) {
+                                        Text("25m").tag(25)
+                                        Text("50m").tag(50)
+                                    }
+                                    .pickerStyle(SegmentedPickerStyle())
+                                }
+                                
+                                // Stroke type
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Estilo principal")
+                                        .font(.headline)
+                                        .fontWeight(.medium)
+                                    
+                                    Picker("Stroke Type", selection: $strokeType) {
+                                        ForEach(strokeTypes, id: \.self) { stroke in
+                                            Text(stroke).tag(stroke)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color(.systemGray6))
+                                    )
+                                }
+                            }
+                        }
+                        
+                        if selectedSport == .cycling {
+                            VStack(spacing: 16) {
+                                // Elevation
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Desnivel (opcional)")
+                                        .font(.headline)
+                                        .fontWeight(.medium)
+                                    
+                                    HStack {
+                                        Image(systemName: "mountain.2")
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 20)
+                                        
+                                        TextField("500", text: $elevation)
+                                            .keyboardType(.numberPad)
+                                            .textFieldStyle(PlainTextFieldStyle())
+                                        
+                                        Text("m")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color(.systemGray6))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color(.systemGray4), lineWidth: 1)
+                                    )
+                                }
+                                
+                                // Average power
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Potencia promedio (opcional)")
+                                        .font(.headline)
+                                        .fontWeight(.medium)
+                                    
+                                    HStack {
+                                        Image(systemName: "bolt")
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 20)
+                                        
+                                        TextField("200", text: $avgPower)
+                                            .keyboardType(.numberPad)
+                                            .textFieldStyle(PlainTextFieldStyle())
+                                        
+                                        Text("W")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color(.systemGray6))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color(.systemGray4), lineWidth: 1)
+                                    )
+                                }
+                            }
                         }
                         
                         // Notes input
@@ -210,13 +452,25 @@ struct AddWorkoutView: View {
     }
     
     private func saveWorkout() {
-        guard let km = Double(kilometers), km > 0 else { return }
+        guard let dist = Double(distance), dist > 0 else { return }
+        
+        // Convert distance to km for swimming (input is in meters)
+        let distanceInKm = selectedSport == .swimming ? dist / 1000 : dist
+        
+        // Convert duration to seconds
+        let durationInSeconds = Double(duration).map { $0 * 60 }
         
         let workout = Workout(
             date: workoutDate,
-            kilometers: km,
             type: selectedType,
-            notes: notes.isEmpty ? nil : notes
+            distance: distanceInKm,
+            duration: durationInSeconds,
+            intensity: intensity,
+            notes: notes.isEmpty ? nil : notes,
+            poolLength: selectedSport == .swimming ? poolLength : nil,
+            strokeType: selectedSport == .swimming ? strokeType : nil,
+            elevation: selectedSport == .cycling ? Double(elevation) : nil,
+            avgPower: selectedSport == .cycling ? Int(avgPower) : nil
         )
         
         dataManager.addWorkout(workout)
